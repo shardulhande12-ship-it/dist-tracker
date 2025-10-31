@@ -3,7 +3,19 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Smart Distance Tracker (Debug)</title>
+  <title>Run & Walk Tracker</title>
+
+  <!-- ✅ PWA Setup -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#00f2fe" />
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/service-worker.js')
+        .then(() => console.log('✅ Service Worker Registered'))
+        .catch(err => console.warn('❌ Service Worker Failed:', err));
+    }
+  </script>
+
   <style>
     * {
       margin: 0;
@@ -101,6 +113,7 @@
     }
   </style>
 </head>
+
 <body>
   <div class="tracker-container">
     <div class="icon">🏃‍♂️🚶‍♀️</div>
@@ -155,14 +168,14 @@
       const a =
         Math.sin(dLat / 2) ** 2 +
         Math.cos(toRad(lat1)) *
-          Math.cos(toRad(lat2)) *
-          Math.sin(dLon / 2) ** 2;
+        Math.cos(toRad(lat2)) *
+        Math.sin(dLon / 2) ** 2;
       const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
       return R * c;
     }
 
     function startTracking() {
-      showError(""); // clear any previous errors
+      showError("");
       if (watchId) return;
 
       distance = 0;
