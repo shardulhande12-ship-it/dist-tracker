@@ -1,0 +1,223 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Smart Distance Tracker (Debug)</title>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: "Poppins", sans-serif;
+    }
+
+    body {
+      height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: linear-gradient(135deg, #4facfe, #00f2fe);
+      color: #fff;
+    }
+
+    .tracker-container {
+      background: rgba(255, 255, 255, 0.15);
+      backdrop-filter: blur(12px);
+      border-radius: 25px;
+      padding: 30px;
+      width: 350px;
+      text-align: center;
+      box-shadow: 0 10px 40px rgba(0, 0, 0, 0.25);
+    }
+
+    h1 {
+      font-size: 1.8em;
+      margin-bottom: 10px;
+      letter-spacing: 1px;
+    }
+
+    .icon {
+      font-size: 2.5em;
+      margin-bottom: 10px;
+    }
+
+    .stats {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 15px;
+      margin: 20px 0;
+    }
+
+    .card {
+      background: rgba(255, 255, 255, 0.25);
+      padding: 15px;
+      border-radius: 15px;
+      transition: 0.3s;
+    }
+
+    .card:hover {
+      transform: scale(1.05);
+    }
+
+    .value {
+      font-size: 1.6em;
+      font-weight: bold;
+      margin-top: 5px;
+    }
+
+    button {
+      border: none;
+      padding: 12px 25px;
+      border-radius: 25px;
+      background: #fff;
+      color: #0083b0;
+      font-size: 1em;
+      font-weight: bold;
+      cursor: pointer;
+      transition: 0.3s;
+      margin: 5px;
+    }
+
+    button:hover {
+      background: #00f2fe;
+      color: #fff;
+      transform: scale(1.05);
+    }
+
+    footer {
+      margin-top: 15px;
+      font-size: 0.8em;
+      opacity: 0.8;
+    }
+
+    .error {
+      background: rgba(0, 0, 0, 0.3);
+      padding: 10px;
+      border-radius: 10px;
+      margin-top: 10px;
+      font-size: 0.9em;
+      color: #ffb3b3;
+    }
+  </style>
+</head>
+<body>
+  <div class="tracker-container">
+    <div class="icon">🏃‍♂️🚶‍♀️</div>
+    <h1>Run & Walk Tracker</h1>
+    <div class="stats">
+      <div class="card">
+        <div>Distance</div>
+        <div class="value" id="distance">0.00 m</div>
+      </div>
+      <div class="card">
+        <div>Time</div>
+        <div class="value" id="time">00:00:00</div>
+      </div>
+    </div>
+    <button id="startBtn">Start Tracking</button>
+    <button id="stopBtn">Stop</button>
+    <div id="error" class="error"></div>
+    <footer>Track your run & walk with style ✨</footer>
+  </div>
+
+  <script>
+    let watchId = null;
+    let startTime = null;
+    let timerInterval = null;
+    let distance = 0;
+    let lastPosition = null;
+
+    const distanceEl = document.getElementById("distance");
+    const timeEl = document.getElementById("time");
+    const startBtn = document.getElementById("startBtn");
+    const stopBtn = document.getElementById("stopBtn");
+    const errorEl = document.getElementById("error");
+
+    function showError(msg) {
+      errorEl.textContent = msg;
+      console.error(msg);
+    }
+
+    function formatTime(ms) {
+      let totalSec = Math.floor(ms / 1000);
+      let hrs = String(Math.floor(totalSec / 3600)).padStart(2, "0");
+      let mins = String(Math.floor((totalSec % 3600) / 60)).padStart(2, "0");
+      let secs = String(totalSec % 60).padStart(2, "0");
+      return `${hrs}:${mins}:${secs}`;
+    }
+
+    function haversineDistance(lat1, lon1, lat2, lon2) {
+      const R = 6371000;
+      const toRad = (deg) => (deg * Math.PI) / 180;
+      const dLat = toRad(lat2 - lat1);
+      const dLon = toRad(lon2 - lon1);
+      const a =
+        Math.sin(dLat / 2) ** 2 +
+        Math.cos(toRad(lat1)) *
+          Math.cos(toRad(lat2)) *
+          Math.sin(dLon / 2) ** 2;
+      const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+      return R * c;
+    }
+
+    function startTracking() {
+      showError(""); // clear any previous errors
+      if (watchId) return;
+
+      distance = 0;
+      lastPosition = null;
+      startTime = Date.now();
+      distanceEl.textContent = "0.00 m";
+      timeEl.textContent = "00:00:00";
+
+      timerInterval = setInterval(() => {
+        const elapsed = Date.now() - startTime;
+        timeEl.textContent = formatTime(elapsed);
+      }, 1000);
+
+      if ("geolocation" in navigator) {
+        watchId = navigator.geolocation.watchPosition(
+          (pos) => {
+            const { latitude, longitude } = pos.coords;
+
+            if (lastPosition) {
+              const d = haversineDistance(
+                lastPosition.lat,
+                lastPosition.lon,
+                latitude,
+                longitude
+              );
+              if (d > 0.3) distance += d;
+              distanceEl.textContent =
+                distance < 1000
+                  ? `${distance.toFixed(2)} m`
+                  : `${(distance / 1000).toFixed(2)} km`;
+            }
+            lastPosition = { lat: latitude, lon: longitude };
+          },
+          (err) => showError("❌ " + err.message),
+          { enableHighAccuracy: true, maximumAge: 1000, timeout: 10000 }
+        );
+      } else {
+        showError("❌ Geolocation not supported in this browser.");
+      }
+    }
+
+    function stopTracking() {
+      if (timerInterval) {
+        clearInterval(timerInterval);
+        timerInterval = null;
+      }
+      if (watchId !== null) {
+        navigator.geolocation.clearWatch(watchId);
+        watchId = null;
+      }
+      showError("🛑 Tracking stopped.");
+    }
+
+    startBtn.addEventListener("click", startTracking);
+    stopBtn.addEventListener("click", stopTracking);
+  </script>
+</body>
+</html>
